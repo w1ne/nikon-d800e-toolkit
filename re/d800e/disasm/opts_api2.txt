@@ -1,0 +1,4 @@
+-i 0x40000-0x4E2000=0
+-m 0x29649A-0x2964E0=CODE
+-m 0x296A44-0x296A80=CODE
+-o /Users/andrii/nikon-tools/re/d800e/disasm/api2964b.asm
