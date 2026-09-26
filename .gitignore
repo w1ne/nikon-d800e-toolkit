@@ -1,0 +1,34 @@
+# Nikon firmware images and derived binaries - copyright Nikon Corp, never commit
+*.dmg
+*.exe
+re/firmware/
+re/tools/
+re/patched_D800E_0111.bin
+
+# capture artifacts
+*.nef
+*.NEF
+*.mp4
+test_*/
+test_lv.mp4
+
+# upstream sources are fetched by build.sh, not redistributed here
+re/patchcli/fake/
+re/patchcli/.build/
+re/patchcli/nikon_patch.c
+re/patchcli/patches.c
+re/patchcli/patches.h
+re/patchcli/md5.c
+re/patchcli/md5.h
+re/patchcli/md5driver.c
+re/patchcli/xor.c
+re/patchcli/xor.h
+
+# build outputs
+re/patchcli/nfpatch
+re/patchcli/*.o
+
+# misc
+__pycache__/
+*.pyc
+.DS_Store
