@@ -114,7 +114,8 @@ Artifacts:
 ## 8. Research milestones beyond the port
 
 - M1 (done): decode, diff, port, native patcher, candidate image.
-- M2 (days): upstream PR to Simeon; independent review of the port diff.
+- M2 (days): independent review of the port diff. Upstream PR to Simeon is on hold
+  (decision 2026-09-26) - the port stays in this repo's own diff for now.
 - M3 (days-weeks): extend the same table approach. Findings so far:
   - The 12 patched sites are FR `LDI` instructions (prefix `9F 89`) loading **big-endian
     bitrate constants in bits/sec**: 24,000,000 / 20,000,000 / 12,000,000 / 10,000,000.
