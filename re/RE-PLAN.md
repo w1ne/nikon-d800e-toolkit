@@ -116,17 +116,13 @@ Artifacts:
 - M1 (done): decode, diff, port, native patcher, candidate image.
 - M2 (days): independent review of the port diff. Upstream PR to Simeon is on hold
   (decision 2026-09-26) - the port stays in this repo's own diff for now.
-- M3 (days-weeks): extend the same table approach. Findings so far:
-  - The 12 patched sites are FR `LDI` instructions (prefix `9F 89`) loading **big-endian
-    bitrate constants in bits/sec**: 24,000,000 / 20,000,000 / 12,000,000 / 10,000,000.
-  - The patches rewrite them to 64M/60M (HQ pair) and 24M/20M (NQ pair) - exactly the
-    documented "NQ old HQ" semantics, which independently validates the port.
-  - Untouched records at 0x21F38..0x22038 hold 24M, 12M, 12M, 8M, 9M, 4M, 3M, 6M - they
-    likely belong to other video records (other frame-rate banks / 720p / low quality).
-  - Next: correlate each record with a UI mode (test recordings or disassembly of the FR
-    code around 0x21E00-0x22040 via dfr / Ghidra + ghidra_fujitsu_fr), then it becomes
-    possible to offer high-bitrate 720p or other-frame-rate variants that never existed.
-    Same mechanism, same risk class (Alpha).
+- M3 (in progress): the bitrate dispatcher is **fully disassembled**. See
+  `re/d800e/DISASM-FINDINGS.md` for the code structure, the dispatch tables, the complete
+  bitrate matrix (4 groups x 7 records) and extension candidates. Summary: `R4` selects a
+  mode group, `R7` a record within it, `R5` the HQ/NQ pair; the 1.11 alpha patch rewrites
+  3 of 7 records in group R4=0 only, and several untouched records still carry the
+  premium 24M/20M pair - prime candidates for further (Alpha-risk) work once each record
+  is correlated with a UI mode.
 - M4 (weeks-months): code-level work in Ghidra + FR plugin / emulator: port features
   that never existed for D800 family (Liveview manual ISO/shutter like D5100, HDMI
   clean/uncropped experiments, long-exposure automation). This is where the real

@@ -177,11 +177,27 @@ Extract without mounting: `7zz x F-D800E-V111M.dmg` then extract the inner
 | D800_0111.bin (stock) | `2bc4a74881b08dc0ce67b4f748a0d947` | `fc1273aafd9787a665f662224e4b1aa1e0ff12a5af7befb1e3ec5cd112f6f0ab` |
 | patched_D800E_0111.bin (64 Mbps build) | `1ebecf6bdd5ff65346197e7edf522785` | `9de3c24ae5f08eb93b94344a7f53bc3dc1824a52f8bb947dc299d2e1784b75d8` |
 
-### Next steps (M3/M4 in the plan)
+### Disassembly results
 
-- Map the untouched bitrate records at `0x21F38..0x22038` (24M, 12M, 12M, 8M, 9M, 4M,
-  3M, 6M) to specific video modes, then extend the same mechanism (e.g. high-bitrate
-  720p - something that never existed for the D800 family).
+The bitrate patch region has been disassembled with the NikonHacker FR disassembler
+(built natively on macOS; see [`re/d800e/disasm/README.md`](re/d800e/disasm/README.md)).
+It is a **bitrate-pair selector**: `R4` selects a mode group (jump table at memory
+`0xCD960`), `R7` a record within the group (7-entry tables per group), `R5` picks the
+HQ vs NQ pair, and the result is returned as two u32s (HQ/NQ bits per second).
+
+`memory = file offset + 0x40000`. The 1.11 alpha patch rewrites exactly 3 of 7 records
+in group R4=0 (the records carrying the 24M/20M premium pair) - to 64M/60M and 24M/20M.
+Other records, including untouched ones that still carry 24M/20M (R4=1 R7=1/5), are
+mapped but not yet correlated with UI modes.
+
+Full structure, complete bitrate matrix for all 4 groups and extension candidates:
+**[`re/d800e/DISASM-FINDINGS.md`](re/d800e/DISASM-FINDINGS.md)**.
+
+### Next steps
+
+- Correlate each R4/R7 record with its UI video mode (test recordings or caller
+  analysis), then extend the same mechanism (e.g. high-bitrate 720p - something that
+  never existed for the D800 family).
 - Code-level features (Live View manual ISO/shutter, HDMI experiments) via Ghidra +
   `ghidra_fujitsu_fr` and/or the NikonHacker FR emulator.
 
@@ -199,6 +215,9 @@ Extract without mounting: `7zz x F-D800E-V111M.dmg` then extract the inner
     ├── RE-PLAN.md                  # full RE plan + recovery reality + milestones
     ├── nikonfw.py                  # decode/encode, block info, extract, search
     ├── d800e_0111_patches.diff     # the D800E 1.11 port for upstream
+    ├── d800e/
+    │   ├── DISASM-FINDINGS.md      # bitrate dispatcher disassembly + full matrix
+    │   └── disasm/README.md        # how to reproduce the disassembly
     └── patchcli/
         ├── main.c                  # CLI driver (list/apply)
         └── build.sh                # fetches upstream, applies diff, builds nfpatch

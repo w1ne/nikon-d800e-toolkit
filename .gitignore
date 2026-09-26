@@ -5,6 +5,10 @@ re/firmware/
 re/tools/
 re/patched_D800E_0111.bin
 
+# disassembly work products (firmware-derived, keep local)
+re/d800e/disasm/b63e111b.bin
+re/d800e/disasm/*.asm
+
 # capture artifacts
 *.nef
 *.NEF
