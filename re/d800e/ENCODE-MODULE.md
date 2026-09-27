@@ -70,11 +70,14 @@ flowchart LR
 
 Parser entry is `0x692A0`: it clears 0x154 bytes of `0x84E6B538`, copies a name
 string from `0xCFBC0`, clamps/copies audio strings, stores arg2 at `ctx+0x90`, then
-fills the fields below from the source struct. It is called from **`0x70C8E`**, the
-"prepare movie pipeline" function, which switches on the *size enum*, computes
-encoder buffer geometry (1920x1080/1088, 1280x720, 640x424/480, 320x216/480 with
-rounding math) and builds the stack message passed to the parser. A getter at
-`0x69290` returns the ctx pointer; `0x6922A` converts time values (÷1000).
+fills the fields below from the source struct. It is called from **`0x70C7A`**, the
+"prepare movie pipeline" function (entry confirmed by the call at `0x6DA2C`; its
+internal jumps use table `0xD0B6C`). That function switches on the *size enum*,
+computes encoder buffer geometry (1920x1080/1088, 1280x720, 640x424/480,
+320x216/480 with rounding math) and builds the stack message passed to the parser.
+Its caller `0x6DAxx` runs after REALOS services (`INT #0x40`) and passes
+`R4 = [0x84E6BFD4]` - a control word in the shared RAM block. A getter at `0x69290`
+returns the ctx pointer; `0x6922A` converts time values (÷1000).
 
 The parser copies the movie-settings message into the vraw context. Its jump tables
 are the authoritative enum orders:
@@ -306,10 +309,14 @@ NQ 12/10 → 24/20). Patch with `../MODDING.md` and always flash a `verify`-clea
 
 ## 9. Remaining unknowns (small)
 
-- Which processor/module produces the settings message and the E50 mode fields - both
-  arrive from outside the B image (the A image has no FR code or UI strings); B only
-  consumes them. This is the only structural gap left in the chain.
-- Exact consumer of the 360 kHz time accumulator (per-record increments in `0x63728`
-  and the vraw copy near `0x6AE60`; the `0x642xx` functions maintain the related
-  file/media slot accounting).
+- The **A-side processor** that writes the shared control blocks (E50 mode triple,
+  `0x84E6BFD4`, `0x84E6BED0`, `0x84E6BFC4`, `0x84E6C004`) is not FR code (the A image
+  has 0 FR `RET` patterns, a `3c 1a bf c0` header and a Nikon copyright string at
+  `0x7FB8`); it cannot be disassembled with the FR toolchain. All B-side uses of
+  those blocks are reads.
+- Consumer side is now identified as the **spool/scheduler** subsystem
+  (`0x6Dxxx-0x71xxx`): `0x6D340` divides accumulated time by 1000 (ms), bumps
+  counters at `0x84E6C014`, keeps min/max at `0x84E6BA70/+4`; `0x6D29A` classifies
+  intervals (clamped to 1000) into rate categories. Which visible UI element uses the
+  result (remaining-time estimate vs. throttling) is not proven.
 - Which non-movie pipeline uses the 15p (14.985 fps) and 24.000 fps classes.

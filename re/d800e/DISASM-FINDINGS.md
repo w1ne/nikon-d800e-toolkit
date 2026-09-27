@@ -295,10 +295,15 @@ are in [`ENCODE-MODULE.md`](ENCODE-MODULE.md); the mod/flash workflow is in
    9M/6M (group 1) rates, serving pipelines that are not the user movie modes.
 3. **Settings message path found.** Parser entry `0x692A0` (clears 0x154 bytes of
    `0x84E6B538`, copies a name from `0xCFBC0`, fills fields from the source struct and
-   dispatches on the rate enum table `0xCFDC4`). Called from `0x70C8E`, the "prepare
-   movie pipeline" function that switches on the size enum, computes encoder buffer
-   geometry (1920x1080/1088, 1280x720, 640x424/480, 320x216/480) and builds the
-   message. A getter at `0x69290` returns the ctx pointer.
+   dispatches on the rate enum table `0xCFDC4`). Called from `0x70C7A` (entry via the
+   call at `0x6DA2C`), the "prepare movie pipeline" function that switches on the size
+   enum, computes encoder buffer geometry (1920x1080/1088, 1280x720, 640x424/480,
+   320x216/480) and builds the message; its caller runs after REALOS `INT #0x40`
+   services and feeds it `R4 = [0x84E6BFD4]` from the shared RAM control block. A
+   getter at `0x69290` returns the ctx pointer; `0x6922A` converts time values (÷1000).
+   The A firmware is not FR code (0 `RET` opcodes; header `3c 1a bf c0`; copyright
+   string at `0x7FB8`), so this shared block's producer cannot be disassembled with
+   the FR toolchain - B-side accesses to these blocks are all reads.
 4. **E50 write side clarified.** All ten `0x84E65E50` references were audited: B writes
    only `+0x0C` (`0x62D8E`), `+0x38` (`0x64C1A`), `+0x28` (apply `0x62F4A`) and the
    reset `0x62F14`; everything else is read-only. The mode triple
@@ -308,9 +313,16 @@ are in [`ENCODE-MODULE.md`](ENCODE-MODULE.md); the mod/flash workflow is in
 
 ## Open questions
 
-- Producer of the E50 mode triple and the settings message (external to B).
-- Exact consumer of the 360 kHz accumulator (encode scheduling; related accounting
-  code is in the `0x642xx`-`0x649xx` region).
+- Producer of the E50 mode triple and the shared control blocks: the A-side CPU
+  (non-FR image; header `3c 1a bf c0`, Nikon copyright at `0x7FB8`). Out of reach of
+  the FR disassembler; all B-side accesses are reads.
+- The 360 kHz accumulator's consumer is the **spool/scheduler** subsystem
+  (`0x6Dxxx-0x71xxx`): `0x6D340` ÷1000 + counters at `0x84E6C014`, min/max at
+  `0x84E6BA70/+4`; `0x6D29A` classifies intervals (≤1000 ms) into rate categories.
+  Which UI element consumes the result (remaining-time estimate vs. throttling) is
+  not proven.
 - Which pipeline drives the 15p and 24.000 fps classes.
 - Callers of `0x62F4A` (mode apply) and `0x62F14` (reset): no direct LDI references
-  (indirect entry; corrected addresses - the round-1/2 note said 0x62F4C).
+  (indirect entry; corrected addresses - the round-1/2 note said 0x62F4C). The
+  module's entry points are generally reached indirectly (pipeline builder, parser,
+  apply all lack direct refs), consistent with REALOS task/dispatch registration.

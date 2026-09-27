@@ -1,0 +1,4 @@
+-i 0x40000-0x4E2000=0
+-m 0x6DA00-0x6DAA0=CODE
+-m 0x6D340-0x6D3B0=CODE
+-o /Users/andrii/nikon-tools/re/d800e/disasm/spool.asm
