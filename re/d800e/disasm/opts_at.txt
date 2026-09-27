@@ -1,0 +1,5 @@
+-i 0x40000-0x4E2000=0
+-m 0x62FC0-0x63060=CODE
+-m 0x67E60-0x67EC0=CODE
+-m 0x6AE40-0x6AF00=CODE
+-o /Users/andrii/nikon-tools/re/d800e/disasm/apply_tail.asm

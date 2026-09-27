@@ -78,16 +78,45 @@ def parse_blocks(data):
         pos += 32
     return count, blocks
 
-def looks_decoded(data):
+def structure_ok(data):
+    """Structural plausibility of a decoded container (names, offsets, sizes)."""
     try:
         count, blocks = parse_blocks(data)
         if not (1 <= count <= 10):
             return False
-        if any(o == 0 or l == 0 or o + l > len(data) for o, l in blocks):
+        if any(o < 0x30 or l <= 4 or o + l > len(data) for o, l in blocks):
             return False
+        pos = 0x30
+        for _ in range(count):
+            name = data[pos:pos+16]
+            if not name or name[0] == 0:
+                return False
+            if not all(32 <= c < 127 or c == 0 for c in name):
+                return False
+            pos += 32
         return True
     except Exception:
         return False
+
+def detect(raw):
+    """Return (decoded_bytes, was_xor_encoded). Decides by CRC validity first,
+    then by structural plausibility; Nikon files ship XOR-encoded."""
+    xorred = xor(raw)
+    r_struct, x_struct = structure_ok(raw), structure_ok(xorred)
+    r_crc = r_struct and all_block_crcs_ok(raw)
+    x_crc = x_struct and all_block_crcs_ok(xorred)
+    if r_crc and not x_crc:
+        return bytes(raw), False
+    if x_crc and not r_crc:
+        return xorred, True
+    if r_struct and not x_struct:
+        return bytes(raw), False
+    if x_struct and not r_struct:
+        return xorred, True
+    return (xorred, True) if x_struct else (bytes(raw), False)
+
+def looks_decoded(data):
+    return detect(data)[1] is False
 
 def crc16_ccitt(data):
     rem = 0
@@ -105,13 +134,23 @@ def fix_block_crc(data, offset, length):
     data[offset+length-2] = (checksum >> 8) & 0xFF
     data[offset+length-1] = checksum & 0xFF
 
+def verify_block_crc(data, offset, length):
+    if length <= 2:
+        return True
+    stored = struct.unpack(">H", data[offset+length-2:offset+length])[0]
+    return crc16_ccitt(data[offset:offset+length-2]) == stored
+
+def all_block_crcs_ok(data):
+    count, blocks = parse_blocks(data)
+    return all(verify_block_crc(data, o, l) for o, l in blocks)
+
 def main():
     cmd = sys.argv[1]
     path = sys.argv[2]
     raw = open(path, "rb").read()
     if cmd == "info":
-        dec = raw if looks_decoded(raw) else xor(raw)
-        print("file:", path, "size:", len(raw), "state:", "raw/decoded" if dec is raw else "xor-decoded")
+        dec, was_xor = detect(raw)
+        print("file:", path, "size:", len(raw), "state:", "xor-encoded" if was_xor else "decoded")
         count, blocks = parse_blocks(dec)
         print("blocks:", count)
         for i, (o, l) in enumerate(blocks):
@@ -119,32 +158,63 @@ def main():
             print(f"  [{i}] offset=0x{o:08x} length=0x{l:08x} head={head}")
     elif cmd == "decode":
         out = sys.argv[3]
-        dec = raw if looks_decoded(raw) else xor(raw)
+        dec, _ = detect(raw)
         open(out, "wb").write(dec)
         print("wrote", out, len(dec))
     elif cmd == "encode":
         out = sys.argv[3]
-        enc = raw if not looks_decoded(raw) else xor(raw)
+        dec, was_xor = detect(raw)
+        enc = dec if was_xor else xor(dec)
         open(out, "wb").write(enc)
         print("wrote", out, len(enc))
     elif cmd == "extract":
         idx = int(sys.argv[3]); out = sys.argv[4]
-        dec = raw if looks_decoded(raw) else xor(raw)
+        dec, _ = detect(raw)
         count, blocks = parse_blocks(dec)
         o, l = blocks[idx]
         open(out, "wb").write(dec[o:o+l])
         print(f"block {idx} -> {out} (0x{l:x} bytes)")
     elif cmd == "search":
         needle = sys.argv[3].encode()
-        dec = raw if looks_decoded(raw) else xor(raw)
+        dec, _ = detect(raw)
         pos = 0
         while True:
             pos = dec.find(needle, pos)
             if pos < 0: break
             print(f"found at 0x{pos:08x}")
             pos += 1
+    elif cmd == "verify":
+        dec, _ = detect(raw)
+        count, blocks = parse_blocks(dec)
+        ok = True
+        for i, (o, l) in enumerate(blocks):
+            good = verify_block_crc(dec, o, l)
+            ok = ok and good
+            print(f"  block[{i}] offset=0x{o:08x} length=0x{l:08x} crc={'OK' if good else 'BAD'}")
+        print("container CRC:", "OK" if ok else "BAD")
+        sys.exit(0 if ok else 1)
+    elif cmd == "repack":
+        # Mod workflow: take a decoded (or raw) container, optionally with
+        # hand-patched blocks, fix every block CRC, XOR-encode, write flashable file.
+        out = sys.argv[3]
+        dec = bytearray(detect(raw)[0])
+        count, blocks = parse_blocks(dec)
+        for i, (o, l) in enumerate(blocks):
+            fix_block_crc(dec, o, l)
+        again = bytearray(dec)
+        for i, (o, l) in enumerate(blocks):
+            fix_block_crc(again, o, l)
+        if bytes(again) != bytes(dec):
+            print("WARNING: CRC fix is not stable - refusing to write")
+            sys.exit(1)
+        enc = xor(bytes(dec))
+        open(out, "wb").write(enc)
+        import hashlib
+        print(f"wrote {out} ({len(enc)} bytes)")
+        print("sha256:", hashlib.sha256(enc).hexdigest())
+        print("block CRCs: OK (verified after fix)")
     else:
-        print("usage: info|decode|encode|extract|search")
+        print("usage: info|decode|encode|extract|search|verify|repack")
 
 if __name__ == "__main__":
     main()

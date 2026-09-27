@@ -116,17 +116,18 @@ Artifacts:
 - M1 (done): decode, diff, port, native patcher, candidate image.
 - M2 (days): independent review of the port diff. Upstream PR to Simeon is on hold
   (decision 2026-09-26) - the port stays in this repo's own diff for now.
-- M3 (in progress): the bitrate dispatcher is **fully disassembled**. See
-  `re/d800e/DISASM-FINDINGS.md` for the code structure, the dispatch tables, the complete
-  bitrate matrix (4 groups x 7 records) and extension candidates. Summary: `R4` selects a
-  mode group, `R7` a record within it, `R5` the HQ/NQ pair; the 1.11 alpha patch rewrites
-  3 of 7 records in group R4=0 only, and several untouched records still carry the
-  premium 24M/20M pair - prime candidates for further (Alpha-risk) work once each record
-  is correlated with a UI mode.
-- M4 (weeks-months): code-level work in Ghidra + FR plugin / emulator: port features
-  that never existed for D800 family (Liveview manual ISO/shutter like D5100, HDMI
-  clean/uncropped experiments, long-exposure automation). This is where the real
-  "ML-vision" additions live, and where the emulator saves your camera.
+- M3 (done): the bitrate dispatcher and the whole mode-selection path are **fully
+  disassembled and mapped**. Record = frame-rate class, group = frame-size class; all
+  seven UI modes now have known (group, record) coordinates (see `d800e/ENCODE-MODULE.md`
+  and `d800e/DISASM-FINDINGS.md`). The alpha patch's 12 sites are exactly the three
+  1080p modes; the exact 720p sites are listed for extension.
+- M4 (next): hardware-test the 720p bitrate extension on a sacrificial body; then
+  code-level work in Ghidra + FR plugin / emulator: features that never existed for the
+  D800 family (Liveview manual ISO/shutter like D5100, HDMI clean/uncropped experiments,
+  long-exposure automation). This is where the real "ML-vision" additions live.
+- M5 (goal): open-source firmware modules - the decode/repack tooling (`re/MODDING.md`,
+  `re/nikonfw.py repack|verify`) already makes arbitrary data-level images buildable and
+  verifiable; code patches need the free-space map and a safe flashing path.
 
 ## 9. Commands cheat sheet
 
@@ -150,4 +151,6 @@ python3 ~/nikon-tools/re/nikonfw.py search <file.bin> "D800E"
   or the emulator's expectations). Needed only for M4.
 - Whether Alpha 1.11 table values are electrically correct for the D800E encoder -
   only hardware testing can answer; start on sacrificial body.
-- Which presets the untouched table rows at 0x21Fxx belong to.
+- ~~Which presets the untouched table rows at 0x21Fxx belong to.~~ Resolved: 720p60
+  (0x21F38), 720p50 (0x21FB0), 720p30 (0x21F64), 720p25 (0x21FDC) - see
+  `d800e/ENCODE-MODULE.md` section 8.

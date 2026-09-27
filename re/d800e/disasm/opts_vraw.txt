@@ -1,0 +1,3 @@
+-i 0x40000-0x4E2000=0
+-m 0x6AB00-0x6B060=CODE
+-o /Users/andrii/nikon-tools/re/d800e/disasm/vraw.asm

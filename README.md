@@ -181,25 +181,44 @@ Extract without mounting: `7zz x F-D800E-V111M.dmg` then extract the inner
 
 The bitrate patch region has been disassembled with the NikonHacker FR disassembler
 (built natively on macOS; see [`re/d800e/disasm/README.md`](re/d800e/disasm/README.md)).
-It is a **bitrate-pair selector**: `R4` selects a mode group (jump table at memory
-`0xCD960`), `R7` a record within the group (7-entry tables per group), `R5` picks the
-HQ vs NQ pair, and the result is returned as two u32s (HQ/NQ bits per second).
+It is a **bitrate-pair selector**: `R4` selects a mode group (frame-size class, jump
+table at memory `0xCD960`), `R7` a record within the group (7-entry tables per group),
+`R5` picks the HQ vs NQ pair, and the result is returned as two u32s (HQ/NQ bits/s).
 
-`memory = file offset + 0x40000`. The 1.11 alpha patch rewrites exactly 3 of 7 records
-in group R4=0 (the records carrying the 24M/20M premium pair) - to 64M/60M and 24M/20M.
-Other records, including untouched ones that still carry 24M/20M (R4=1 R7=1/5), are
-mapped but not yet correlated with UI modes.
+**Solved**: the record index is a frame-rate class. The vraw mapper at `0x6AB76`
+converts the movie settings (width `+0xB0`, rate `+0x9C` as fps x 1000, quality
+`+0xB4`) into (group, record, quality):
 
-Full structure, complete bitrate matrix for all 4 groups and extension candidates:
-**[`re/d800e/DISASM-FINDINGS.md`](re/d800e/DISASM-FINDINGS.md)**.
+| mode | (group, record) | alpha patch |
+|---|---|---|
+| 1080/24p | (0, 0) | yes |
+| 1080/30p | (0, 2) | yes |
+| 1080/25p | (0, 6) | yes |
+| 720/60p | (1, 1) | no - extension candidate |
+| 720/50p | (1, 5) | no - extension candidate |
+| 720/30p | (1, 2) | no |
+| 720/25p | (1, 6) | no |
+
+So the alpha patch's 12 sites are exactly the three 1080p modes; 720p60/50 already run
+at the stock 24/20 Mbps premium pair and can be boosted the same way. 15 fps and 2.4 fps
+record classes exist for non-movie pipelines.
+
+- Full structure, complete bitrate matrix, struct maps and per-mode patch-site tables:
+  **[`re/d800e/ENCODE-MODULE.md`](re/d800e/ENCODE-MODULE.md)** (visual reference,
+  Mermaid diagrams) plus [`re/d800e/DISASM-FINDINGS.md`](re/d800e/DISASM-FINDINGS.md).
+- Decode -> edit -> re-encrypt -> verify workflow with worked 720p60 example:
+  **[`re/MODDING.md`](re/MODDING.md)** (`re/nikonfw.py repack|verify`).
 
 ### Next steps
 
-- Correlate each R4/R7 record with its UI video mode (test recordings or caller
-  analysis), then extend the same mechanism (e.g. high-bitrate 720p - something that
-  never existed for the D800 family).
+- Hardware-test the 720p extension (720p60/50 HQ 64/60, NQ 24/20) - the exact sites
+  are listed in `ENCODE-MODULE.md` section 8. Nobody has ever had high-bitrate 720p on
+  a D800-family body.
+- Find the writer of the `0x84E65E50` settings block and the UI-enum -> (width, rate)
+  table (A firmware) to open the door to code-level features.
 - Code-level features (Live View manual ISO/shutter, HDMI experiments) via Ghidra +
-  `ghidra_fujitsu_fr` and/or the NikonHacker FR emulator.
+  `ghidra_fujitsu_fr` and/or the NikonHacker FR emulator, working toward open-source
+  firmware modules.
 
 ---
 
@@ -213,9 +232,11 @@ Full structure, complete bitrate matrix for all 4 groups and extension candidate
 ├── nikon-*.sh                      # USB control scripts
 └── re/
     ├── RE-PLAN.md                  # full RE plan + recovery reality + milestones
-    ├── nikonfw.py                  # decode/encode, block info, extract, search
+    ├── MODDING.md                  # decode -> patch -> repack -> verify guide
+    ├── nikonfw.py                  # info/decode/encode/extract/search/verify/repack
     ├── d800e_0111_patches.diff     # the D800E 1.11 port for upstream
     ├── d800e/
+    │   ├── ENCODE-MODULE.md        # visual map: modes, structs, matrix, patch sites
     │   ├── DISASM-FINDINGS.md      # bitrate dispatcher disassembly + full matrix
     │   └── disasm/README.md        # how to reproduce the disassembly
     └── patchcli/

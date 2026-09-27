@@ -52,31 +52,39 @@ R4 dispatch table @ 0xCD960: 0x61E0E (R4=0), 0x61EEC (R4=1), 0x62022 (R4=2),
 
 ## Bitrate matrix (bits/sec, as loaded into R9/R8 by each record handler)
 
-| Group | R7 | values found (code order; R5 selects the applicable pair) |
-|---|---|---|
-| R4=0 | 0 | **24M/20M, 12M/10M** |
-| R4=0 | 1 | (common - defaults) |
-| R4=0 | 2 | **24M/20M, 12M/10M**, 12M/8M |
-| R4=0 | 3 | 12M/8M, **24M/20M, 12M/10M** |
-| R4=0 | 4 | 12M/8M, 10M/8M |
-| R4=0 | 5 | (common - defaults) |
-| R4=0 | 6 | **24M/20M, 12M/10M**, 12M/8M |
-| R4=1 | 0 | 10M/8M, 6M/5M, 24M/20M, 12M/10M |
-| R4=1 | 1 | 24M/20M, 12M/10M, 12M/10M, 8M/6M |
-| R4=1 | 2 | 12M/10M, 8M/6M, 9M/6M |
-| R4=1 | 3 | 9M/6M, 24M/20M, 12M/10M |
-| R4=1 | 4 | 9M/6M, 6M/4M |
-| R4=1 | 5 | 24M/20M, 12M/10M, 12M/10M, 8M/6M |
-| R4=1 | 6 | 12M/10M, 8M/6M, 9M/6M |
-| R4=2 | 0..6 | 6M/4M, 5M/4M, 3M/2M combinations |
-| R4=3 | 0..6 | 3M/2M only |
+This table was hand-read from the first listing and contained small errors; the
+definitive, mechanically extracted matrix is in
+[`ENCODE-MODULE.md`](ENCODE-MODULE.md) and in round 3 below. Corrected summary:
+each handler holds **two pairs**; quality (`R5`) 0 takes the first pair ("High"),
+quality != 0 the second ("Normal").
+
+| Group | R7 | pair A (quality 0) | pair B (quality != 0) |
+|---|---|---|---|
+| R4=0 | 0 | **24M/20M** | **12M/10M** |
+| R4=0 | 1 | (common - defaults) | (common - defaults) |
+| R4=0 | 2 | **24M/20M** | **12M/10M** |
+| R4=0 | 3 | 12M/8M | 12M/8M |
+| R4=0 | 4 | 12M/8M | 12M/8M |
+| R4=0 | 5 | (common - defaults) | (common - defaults) |
+| R4=0 | 6 | **24M/20M** | **12M/10M** |
+| R4=1 | 0 | 10M/8M | 6M/5M |
+| R4=1 | 1 | 24M/20M | 12M/10M |
+| R4=1 | 2 | 12M/10M | 8M/6M |
+| R4=1 | 3 | 9M/6M | 9M/6M |
+| R4=1 | 4 | 9M/6M | 9M/6M |
+| R4=1 | 5 | 24M/20M | 12M/10M |
+| R4=1 | 6 | 12M/10M | 8M/6M |
+| R4=2 | all | 6M/4M or 5M/4M | 6M/4M or 3M/2M |
+| R4=3 | all | 3M/2M | 3M/2M |
 
 Bold = the values rewritten by the 1.11 alpha patch (only group R4=0, records R7=0,2,6).
 
 ## The 12 patched sites
 
 The upstream D800 1.11 alpha patch (and this repo's D800E port) rewrites exactly these
-`LDI:32` operands (file offsets used by the patch database / memory addresses):
+`LDI:32` operands (file offsets used by the patch database / memory addresses).
+Record numbers map to UI modes as `R7=0` = 1080/24p, `R7=2` = 1080/30p,
+`R7=6` = 1080/25p (round 3):
 
 | File offset | Memory | Stock | 64 Mbps variant | Role |
 |---|---|---|---|---|
@@ -219,28 +227,65 @@ Three 7-entry tables are indexed by `[E50+0x14]` (record index):
   `0x00124F80` when quality==0 and (group==0 or (group==1 and record in {1,5})).
 - `0x67E86`, `0x621A4`, `0x621D6` results feed `[D40]`/`[D40+4]` in the apply path.
 
-## M3 extension candidates (same mechanism, Alpha risk class)
+## M3 extension candidates (now with known mode labels)
 
-1. **R4=1, R7=1 and R7=5** - these already carry the same 24M/20M premium pair as the
-   patched records but were left untouched by the upstream patch. Prime candidates if
-   they turn out to drive high-bitrate modes.
-2. **R4=0, R7=3** - 12M/8M, 24M/20M, 12M/10M mix.
-3. **R4=1, R7=0/3** - contain 24M/20M+12M/10M among lower pairs.
+Each site below is a B-block file offset (container = +0x100072), u32 BE bits/s;
+first value of each pair = HQ, second = NQ.
 
-Since round 2 the mode space is known: 7 UI modes (see above), frame-size class 0 =
-1080p and 1 = 720p. Group 0 records 0/2/6 are the three 1080p modes; group 1 records
-carry the 720p modes. Still open is the *order*: which of records 0/2/6 is 30p vs 25p
-vs 24p, and how the UI mode index maps to (size class, record, quality) exactly
-(the UI resource order above is a strong candidate for the record order).
+| mode | status | sites |
+|---|---|---|
+| 1080/24p | **patched** | 0x21E2E, 0x21E34 / 0x21E42, 0x21E48 |
+| 1080/30p | **patched** | 0x21E5A, 0x21E60 / 0x21E6E, 0x21E74 |
+| 1080/25p | **patched** | 0x21EA6, 0x21EAC / 0x21EBA, 0x21EC0 |
+| 720/60p | candidate | 0x21F38, 0x21F3E / 0x21F4C, 0x21F52 |
+| 720/50p | candidate | 0x21FB0, 0x21FB6 / 0x21FC4, 0x21FCA |
+| 720/30p | candidate | 0x21F64, 0x21F6A / 0x21F78, 0x21F7E |
+| 720/25p | candidate | 0x21FDC, 0x21FE2 / 0x21FF0, 0x21FF6 |
+
+720p60/50 already run at the same 24/20 Mbps premium pair as stock 1080p, so the
+natural extension is the same bump the alpha patch applies to 1080p. The non-movie
+rate classes (15p/2.4p) exist in both groups but are not user-selectable movie modes.
+See `../MODDING.md` for the edit + repack + verify loop.
+
+## Round 3: the mapping is solved (and supersedes the open items above)
+
+The vraw mode mapper `0x6AB76` reads the current movie settings from context
+`0x84E6B538` and produces the dispatcher arguments:
+
+- **width `[ctx+0xB0]`** 1920/1280/640/320 -> **group** 0/1/2/3
+- **rate `[ctx+0x9C]`** (fps x 1000) -> **record**:
+  24000->0, 60000->1, 30000->2, 15000->3, 2400->4, 50000->5, 25000->6
+- **quality `[ctx+0xB4]`** 1/2 -> 0 (High) / 1 (Normal)
+
+So the record index is a **frame-rate class**, and the seven UI modes map to:
+
+| UI mode | (group, record) | patched by alpha? |
+|---|---|---|
+| 1920x1080; 24p | (0, 0) | yes |
+| 1920x1080; 30p | (0, 2) | yes |
+| 1920x1080; 25p | (0, 6) | yes |
+| 1280x720; 60p | (1, 1) | no |
+| 1280x720; 50p | (1, 5) | no |
+| 1280x720; 30p | (1, 2) | no |
+| 1280x720; 25p | (1, 6) | no |
+
+This makes the alpha patch's 12 sites exactly the three 1080p modes. Group 0's
+records for 60p/50p are empty (no 1080p60/50 exists), which is why records 1 and 5
+fall through to the common zero-store. `0x621A4` returns GOP-ish lengths
+(12/30/15/15/12/24/12 = about fps/2 for the movie rates) and `0x621D6` returns 1
+exactly for the 50p/60p classes.
+
+The definitive bitrate matrix, per-mode extension offsets and the full call graph
+are in [`ENCODE-MODULE.md`](ENCODE-MODULE.md); the mod/flash workflow is in
+[`../MODDING.md`](../MODDING.md).
 
 ## Open questions
 
-- Which of records 0/2/6 (group 0, patched) is 1080p30 vs 1080p25 vs 1080p24, and the
-  corresponding record order for group 1 (720p modes).
-- Meaning of helper `0x621A4` values {12, 30, 15, 15, 12, 24, 12} and the
-  `0x621D6` flags (1 for records 1 and 5) - plausibly GOP/field/rate-control traits.
-- Purpose of frame-size classes 2 and 3 (640x416 and below) - likely the live-view /
-  small pipeline rather than user-visible movie modes.
-- Callers of the mode-apply function `0x62F4C` and of the mode descriptor table that
-  supplies `[descriptor+0x28]` (entered via pointer table) - the last link between UI
-  menu events and `E50`.
+- Writer of the `0x84E65E50` fields (read by the encode_cc module; probably a copy
+  from the vraw side over IPC, not yet located).
+- Exact unit of the `0x63728` per-record accounting increments (inc x fps is
+  360,360 for records 0-3, 720,000 for 50p, 375,000 for 25p).
+- What the 15 fps / 2.4 fps classes drive (group 0 records 3/4, group 1 records 3/4).
+- Callers of `0x62F4A` (mode apply) and `0x62F14` (reset): no direct LDI references;
+  entered indirectly. Corrected entry addresses (the round-1/2 note said 0x62F4C).
+- UI menu index -> (width, rate) conversion lives in the A firmware.
