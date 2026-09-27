@@ -38,7 +38,7 @@ echo "applying patch ids: $*"
 echo "verifying container CRCs..."
 python3 "$FWTOOL" verify "$out"
 
-sha="$(shasum -a 256 "$out" | cut -d' ' -f1)"
+sha="$( { shasum -a 256 "$out" 2>/dev/null || sha256sum "$out"; } | cut -d' ' -f1)"
 echo
 echo "flashable image : $out"
 echo "sha256          : $sha"

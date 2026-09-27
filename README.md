@@ -237,8 +237,9 @@ whole mod is one command:
 ```
 .
 ├── README.md                       # this file
+├── PLATFORMS.md                    # macOS / Linux / Windows setup notes
 ├── FIRMWARE-PATCH-RESEARCH.md      # flash process, risks, firmware links
-├── gp                              # gphoto2 wrapper (ptpcamerad workaround)
+├── gp                              # gphoto2 wrapper (macOS/Linux camera-helper cleanup)
 ├── nikon-*.sh                      # USB control scripts (incl. check-bitrate)
 └── re/
     ├── RE-PLAN.md                  # full RE plan + recovery reality + milestones

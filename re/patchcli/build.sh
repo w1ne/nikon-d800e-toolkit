@@ -1,10 +1,22 @@
 #!/bin/bash
+# Builds the native patcher. Works on macOS, Linux and MSYS2/Git-Bash for
+# Windows: anything with bash, a C compiler and `patch`.
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 UPSTREAM="${UPSTREAM:-$DIR/../tools/nikon-firmware-tools}"
 DIFF="$DIR/../d800e_0111_patches.diff"
 WORK="$DIR/.build"
 UPSTREAM_COMMIT="de8019ee30db7fe7bc61e520da289078ae82dcaa"
+
+CC="${CC:-$(command -v clang || command -v gcc || command -v cc || true)}"
+if [ -z "$CC" ]; then
+  echo "error: no C compiler found - install clang or gcc (MSYS2: pacman -S mingw-w64-x86_64-gcc)" >&2
+  exit 1
+fi
+command -v patch >/dev/null || {
+  echo "error: 'patch' not found - install it (MSYS2: pacman -S patch)" >&2
+  exit 1
+}
 
 if [ ! -d "$UPSTREAM/.git" ]; then
   git clone https://github.com/simeonpilgrim/nikon-firmware-tools.git "$UPSTREAM"
@@ -24,8 +36,8 @@ if ! patch "$WORK/patches.c" "$DIFF" >/dev/null; then
 fi
 
 printf '#define EMSCRIPTEN_KEEPALIVE\n' > "$WORK/fake/emscripten/emscripten.h"
-clang -O2 -c "$WORK/nikon_patch.c" -Dmain=tool_main -I"$WORK/fake" -o "$WORK/nikon_patch.o"
-clang -O2 -o "$DIR/nfpatch" "$DIR/main.c" "$WORK/nikon_patch.o" "$WORK/patches.c" \
+"$CC" -O2 -c "$WORK/nikon_patch.c" -Dmain=tool_main -I"$WORK/fake" -o "$WORK/nikon_patch.o"
+"$CC" -O2 -o "$DIR/nfpatch" "$DIR/main.c" "$WORK/nikon_patch.o" "$WORK/patches.c" \
    "$WORK/md5.c" "$WORK/md5driver.c" "$WORK/xor.c" -I"$WORK" -I"$WORK/fake"
 echo "built: $DIR/nfpatch"
 echo "usage: nfpatch list <firmware.bin> | nfpatch apply <firmware.bin> <out.bin> <patch_id...>"
