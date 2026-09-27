@@ -206,17 +206,19 @@ Three 7-entry tables are indexed by `[E50+0x14]` (record index):
   1080p modes, which is why the alpha patch's 12 sites are exactly those records.
 - **Helper `0x621A4(record)`** (table 0xCD9E0, bodies 0x621B6..0x621D2, each body a
   `BRA:D` + delay `LDI:8 #imm,R4`; FR `LDI:8` encoding verified against known bytes):
-  returns `[12, 30, 15, 15, 12, 24, 12]` for records 0..6. Meaning still open
-  (GOP-length-shaped, but not consistently fps/2).
+  returns `[12, 30, 15, 15, 12, 24, 12]` for records 0..6 = **GOP length in frames**
+  (about fps/2; used by the batch as bytes-per-GOP divisor, 0x64640).
 - **Helper `0x621D6(record)`** (table 0xCD9FC): returns 1 for records 1 and 5, 0
-  otherwise.
+  otherwise (50p/60p flag).
 - **Function `0x63728`** (record jump table mem `0xCDA6C`): per-record case calls the
   Softune runtime 64-bit add (`0x29649A`, entry `ADD R7,R5 / ADDC R6,R4`, 427 callers)
-  to accumulate a 64-bit counter at `[ctx+0x10..0x17]`. Increments per record are
-  `15015, 6006, 12012, 24024, 7200, 14400, 15000` = nominal rates
-  {15.015, 6.006, 12.012, 24.024, 7.2, 14.4, 15.0} Mbps (NTSC x1001/1000 and
-  PAL x1.2 scalings visible). A second 7-entry jump table of the same shape exists at
-  `0xCDAA4` (used by the `0x646xx` caller) with `MULU R5,R4` + `0x296D08` per case.
+  to accumulate a 64-bit counter at `[ctx+0x10..0x17]`. Increments in **table order**
+  (corrected from the earlier address-order list) are rec0..6 =
+  `15015, 6006, 12012, 24024, 15000, 7200, 14400`, and
+  `increment x real fps = 360,000` exactly for every record - the counter is a
+  **360 kHz timebase** (units of 1/360000 s). A second 7-entry jump table exists at
+  `0xCDAA4` (used by the `0x646xx` batch) dividing by floor(fps) per record
+  (`23, 59, 29, 14, 24, 50, 25`) to get **bytes per GOP** = `(bitrate>>3) x GOP / fps`.
 
 ### Other confirmed helpers
 
@@ -279,17 +281,36 @@ The definitive bitrate matrix, per-mode extension offsets and the full call grap
 are in [`ENCODE-MODULE.md`](ENCODE-MODULE.md); the mod/flash workflow is in
 [`../MODDING.md`](../MODDING.md).
 
+## Round 5: closing the remaining questions
+
+1. **Accounting unit solved.** With the record table order corrected, the `0x63728`
+   increments are rec0..6 = `15015, 6006, 12012, 24024, 15000, 7200, 14400` and
+   `increment x real fps = 360,000` exactly for all seven - the accumulator is a
+   **360 kHz timebase** (1/360000 s per unit). The `0x64640` batch uses GOP length
+   (`0x621A4`) and floor(fps) (`23, 59, 29, 14, 24, 50, 25`) to compute **bytes per
+   GOP** = `(bitrate>>3) x GOP / fps`.
+2. **"2.4p" was a misnomer.** Record 4 is `(timebase 2400, scale 100)` = **24.000 fps
+   exactly**, a non-menu integer-rate variant; record 3 is `(15000, 1001)` = 14.985 fps.
+   Both are accepted by the settings parser and dispatched with 12M/8M (group 0) or
+   9M/6M (group 1) rates, serving pipelines that are not the user movie modes.
+3. **Settings message path found.** Parser entry `0x692A0` (clears 0x154 bytes of
+   `0x84E6B538`, copies a name from `0xCFBC0`, fills fields from the source struct and
+   dispatches on the rate enum table `0xCFDC4`). Called from `0x70C8E`, the "prepare
+   movie pipeline" function that switches on the size enum, computes encoder buffer
+   geometry (1920x1080/1088, 1280x720, 640x424/480, 320x216/480) and builds the
+   message. A getter at `0x69290` returns the ctx pointer.
+4. **E50 write side clarified.** All ten `0x84E65E50` references were audited: B writes
+   only `+0x0C` (`0x62D8E`), `+0x38` (`0x64C1A`), `+0x28` (apply `0x62F4A`) and the
+   reset `0x62F14`; everything else is read-only. The mode triple
+   `+0x10/+0x14/+0x18` and `+0x08` therefore arrive from the **other processor**
+   (the A image has no FR code or UI strings) via shared RAM/IPC. That external
+   producer is the only structural unknown left.
+
 ## Open questions
 
-- Writer of the `0x84E65E50` fields (read by the encode_cc module; probably a copy
-  from the vraw side over IPC, not yet located).
-- Exact unit of the `0x63728` per-record accounting increments (inc x fps is
-  360,360 for records 0-3, 720,000 for 50p, 375,000 for 25p).
-- What the 15 fps / 2.4 fps classes drive (group 0 records 3/4, group 1 records 3/4).
-- Callers of `0x62F4A` (mode apply) and `0x62F14` (reset): no direct LDI references;
-  entered indirectly. Corrected entry addresses (the round-1/2 note said 0x62F4C).
-- Which message delivers the settings struct parsed around `0x69280`. The enum orders
-  are resolved (round 4): rate enum table 0xCFDC4 = 24/60/30/15/2.4/50/25 (record
-  order, NTSC pulldown 1001 vs PAL 1000), size enum table 0xCFDE0 = 1920x1080 /
-  1280x720 / 640x424 / 320x216. The A firmware has no movie strings or FR markers, so
-  the menu logic lives in B.
+- Producer of the E50 mode triple and the settings message (external to B).
+- Exact consumer of the 360 kHz accumulator (encode scheduling; related accounting
+  code is in the `0x642xx`-`0x649xx` region).
+- Which pipeline drives the 15p and 24.000 fps classes.
+- Callers of `0x62F4A` (mode apply) and `0x62F14` (reset): no direct LDI references
+  (indirect entry; corrected addresses - the round-1/2 note said 0x62F4C).

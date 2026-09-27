@@ -1,0 +1,4 @@
+-i 0x40000-0x4E2000=0
+-m 0x296CE0-0x296D60=CODE
+-m 0x69100-0x692A0=CODE
+-o /Users/andrii/nikon-tools/re/d800e/disasm/rt296d08.asm

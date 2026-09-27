@@ -1,0 +1,4 @@
+-i 0x40000-0x4E2000=0
+-m 0x69260-0x69390=CODE
+-m 0x64200-0x64470=CODE
+-o /Users/andrii/nikon-tools/re/d800e/disasm/parser_entry.asm

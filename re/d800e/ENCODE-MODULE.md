@@ -66,22 +66,35 @@ flowchart LR
 | 2 | 0x041000 (266,240 B) | 640x416 | 640x424 |
 | 3 | 0x020800 (133,120 B) | 640x208 | 320x216 |
 
-### Menu enum tables (settings parser around `0x69280`)
+### Menu enum tables (settings parser entry `0x692A0`)
+
+Parser entry is `0x692A0`: it clears 0x154 bytes of `0x84E6B538`, copies a name
+string from `0xCFBC0`, clamps/copies audio strings, stores arg2 at `ctx+0x90`, then
+fills the fields below from the source struct. It is called from **`0x70C8E`**, the
+"prepare movie pipeline" function, which switches on the *size enum*, computes
+encoder buffer geometry (1920x1080/1088, 1280x720, 640x424/480, 320x216/480 with
+rounding math) and builds the stack message passed to the parser. A getter at
+`0x69290` returns the ctx pointer; `0x6922A` converts time values (÷1000).
 
 The parser copies the movie-settings message into the vraw context. Its jump tables
 are the authoritative enum orders:
 
 **rate enum** (table `0xCFDC4`, source field `+0x14`) — this *is* the record order:
 
-| enum | fps x1000 | class | pulldown base (`ctx+0xA0`) |
-|---|---|---|---|
-| 0 | 24000 | 24p | 1001 (NTSC) |
-| 1 | 60000 | 60p | 1001 |
-| 2 | 30000 | 30p | 1001 |
-| 3 | 15000 | 15p | 1001 |
-| 4 | 2400 | 2.4p | 100 |
-| 5 | 50000 | 50p | 1000 (PAL) |
-| 6 | 25000 | 25p | 1000 |
+| enum | timebase | scale | real rate | class |
+|---|---|---|---|---|
+| 0 | 24000 | 1001 | 23.976 | 24p |
+| 1 | 60000 | 1001 | 59.940 | 60p |
+| 2 | 30000 | 1001 | 29.970 | 30p |
+| 3 | 15000 | 1001 | 14.985 | 15p (non-menu) |
+| 4 | 2400 | 100 | 24.000 | 24p-exact (non-menu) |
+| 5 | 50000 | 1000 | 50.000 | 50p |
+| 6 | 25000 | 1000 | 25.000 | 25p |
+
+Rate = timebase / scale. The `(2400, 100)` pair is **24.000 fps exactly** (integer-rate
+variant, distinct from the 23.976 movie mode at `(24000, 1001)`); `(15000, 1001)` is
+14.985 fps (29.97/2). Neither is in the movie menu - they serve non-movie pipelines
+driven from outside the B image (records 3/4).
 
 **size enum** (table `0xCFDE0`, source field `+0x10`):
 
@@ -171,23 +184,38 @@ All roughly 6/4 → 3/2 Mbps; not user-selectable movie modes. Their handler set
 
 | helper | table | meaning |
 |---|---|---|
-| `0x621A4(record)` | 0xCD9E0 | `[12, 30, 15, 15, 12, 24, 12]` – GOP length ≈ fps/2 (half-second GOP, rounded) |
+| `0x621A4(record)` | 0xCD9E0 | GOP length in frames ≈ fps/2: `[12, 30, 15, 15, 12, 24, 12]` for records 0..6 |
 | `0x621D6(record)` | 0xCD9FC | `1` for records 1 and 5 (60p/50p), else 0 – high-rate flag |
 | `0x621F4(g, rec, q)` | – | returns `0x124F80` for q=0 with (g=0) or (g=1, rec in {1,5}); else `0x1B7358` |
-| `0x63728` record cases | 0xCDA6C | per-record accounting increments `[15015, 6006, 12012, 24024, 7200, 14400, 15000]`, added to a 64-bit counter via Softune runtime `0x29649A` (64-bit add). `increment x fps` = 360,360 for rec 0..3, 720,000 for rec 5, 375,000 for rec 6 |
+| `0x63728` record cases | 0xCDA6C | **time accounting**: per record adds `360000/fps` to a 64-bit accumulator via Softune `0x29649A` (64-bit add). Increments (table order, corrected): rec0..6 = `15015, 6006, 12012, 24024, 15000, 7200, 14400`; `increment x real fps = 360,000` exactly for **all seven** records, i.e. the accumulator is a **360 kHz timebase** (1/360000 s units) |
+| `0x64640` batch cases | 0xCDAA4 | **bytes-per-GOP** budget: `(bitrate >> 3) x GOP / floor(fps)` where floor(fps) per record = `23, 59, 29, 14, 24, 50, 25` (division via `0x296D08`) |
+
+`0x636C6`/`0x64C24(record, out_num, out_den)` returns the `(timebase, scale)` pair for a
+record - the same table as the settings parser, used to fill `[D40+0x2C/+0x30]` ("video
+timescale", error string `0xCD554`). `0x64C1A` writes `[E50+0x38] = R4`.
 
 ## 6. Data structures
 
 ### 0x84E65E50 — encode settings (0x2C bytes)
 
-| offset | meaning |
-|---|---|
-| +0x08 | total time (checked against 1000 → "total_time too small") |
-| +0x10 | group (frame-size class 0..3) |
-| +0x14 | record (rate class 0..6) |
-| +0x18 | quality (0=HQ, 1=NQ) |
-| +0x1C | flag checked at encode start |
-| +0x28 | copied from mode descriptor by `0x62F4A` |
+| offset | meaning | B-side access |
+|---|---|---|
+| +0x04 | request/channel id (copied to +0x38 by `0x63134`) | read |
+| +0x08 | total time (checked against 1000 → "total_time too small") | read |
+| +0x0C | command/state setter arg | write `0x62D8E` |
+| +0x10 | group (frame-size class 0..3) | read only |
+| +0x14 | record (rate class 0..6) | read only |
+| +0x18 | quality (0=HQ, 1=NQ) | read only |
+| +0x1C | flag checked at encode start | read |
+| +0x28 | copied from mode descriptor by `0x62F4A` | write (apply) |
+| +0x38 | copy of +0x04 | write `0x64C1A` |
+
+**No B-firmware code writes `+0x08/+0x10/+0x14/+0x18`** - all ten E50 base references
+were inspected: they read the mode fields (dispatcher callers, checks) or write only
+state fields (`0x62F14` reset memsets the block, `0x62D8E`, `0x64C1A`). Conclusion:
+the movie mode triple arrives from the **other CPU** (the A image `a63em011100.bin`
+contains no FR code/strings) via shared RAM/IPC; B only consumes it. The same is true
+for the settings-parser input (section 2).
 
 ### 0x84E65D40 — encode state (0x110 bytes)
 
@@ -276,11 +304,12 @@ All values are u32 BE bits/s at B-block file offsets (container offset =
 The stock alpha patch rewrites the first three rows (HQ 24/20 → 64/60,
 NQ 12/10 → 24/20). Patch with `../MODDING.md` and always flash a `verify`-clean file.
 
-## 9. Still open
+## 9. Remaining unknowns (small)
 
-- Writer of `0x84E65E50` fields (read by encode_cc; probably a copy from the vraw side).
-- Exact unit of the `0x63728` accounting increments (relations documented above; the
-  NTSC 1001 / PAL 1000 pulldown bases are now confirmed via the parser).
-- What the 15 fps / 2.4 fps rate classes drive (group 0 records 3/4, group 1 records 3/4).
-- Which message delivers the settings struct parsed around `0x69280` (the enum orders
-  themselves are now known - see section 2).
+- Which processor/module produces the settings message and the E50 mode fields - both
+  arrive from outside the B image (the A image has no FR code or UI strings); B only
+  consumes them. This is the only structural gap left in the chain.
+- Exact consumer of the 360 kHz time accumulator (per-record increments in `0x63728`
+  and the vraw copy near `0x6AE60`; the `0x642xx` functions maintain the related
+  file/media slot accounting).
+- Which non-movie pipeline uses the 15p (14.985 fps) and 24.000 fps classes.
