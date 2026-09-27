@@ -288,4 +288,8 @@ are in [`ENCODE-MODULE.md`](ENCODE-MODULE.md); the mod/flash workflow is in
 - What the 15 fps / 2.4 fps classes drive (group 0 records 3/4, group 1 records 3/4).
 - Callers of `0x62F4A` (mode apply) and `0x62F14` (reset): no direct LDI references;
   entered indirectly. Corrected entry addresses (the round-1/2 note said 0x62F4C).
-- UI menu index -> (width, rate) conversion lives in the A firmware.
+- Which message delivers the settings struct parsed around `0x69280`. The enum orders
+  are resolved (round 4): rate enum table 0xCFDC4 = 24/60/30/15/2.4/50/25 (record
+  order, NTSC pulldown 1001 vs PAL 1000), size enum table 0xCFDE0 = 1920x1080 /
+  1280x720 / 640x424 / 320x216. The A firmware has no movie strings or FR markers, so
+  the menu logic lives in B.

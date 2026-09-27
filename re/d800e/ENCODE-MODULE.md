@@ -12,6 +12,7 @@ flowchart TB
         MENU["Frame size / frame rate menu\n7 modes, strings at 0xB00333+"]
     end
     subgraph B["B firmware (b63e111b.bin)"]
+        PARSE["menu settings parser\n~0x69280\nsize/rate/quality enums\n(tables 0xCFDC4, 0xCFDE0)"]
         VRAW["vraw settings block\n0x84E6B538\nwidth +0xB0, rate +0x9C, quality +0xB4"]
         MAP["mode mapper\n0x6AB76"]
         DISP["bitrate dispatcher\n0x61DE2"]
@@ -20,7 +21,7 @@ flowchart TB
         STATE["encode settings\n0x84E65E50 (0x2C bytes)"]
         RUN["encode state\n0x84E65D40 (0x110 bytes)"]
     end
-    MENU -->|IPC| VRAW --> MAP --> DISP
+    MENU -->|settings message| PARSE --> VRAW --> MAP --> DISP
     DISP --> TAB
     DISP -->|"HQ bps, NQ bps"| OUT["caller output pointers"]
     ENC -->|reads| STATE
@@ -58,12 +59,43 @@ flowchart LR
 
 ### Group = frame-size class (from `0x630A0`)
 
-| group | plane constant | dimensions |
+| group | plane constant | encoder dims | menu dims (parser table 0xCFDE0) |
+|---|---|---|---|
+| 0 | 0x1F6800 (2,058,240 B) | 1920x1072 | 1920x1080 |
+| 1 | 0x0DC000 (901,120 B) | 1280x704 | 1280x720 |
+| 2 | 0x041000 (266,240 B) | 640x416 | 640x424 |
+| 3 | 0x020800 (133,120 B) | 640x208 | 320x216 |
+
+### Menu enum tables (settings parser around `0x69280`)
+
+The parser copies the movie-settings message into the vraw context. Its jump tables
+are the authoritative enum orders:
+
+**rate enum** (table `0xCFDC4`, source field `+0x14`) — this *is* the record order:
+
+| enum | fps x1000 | class | pulldown base (`ctx+0xA0`) |
+|---|---|---|---|
+| 0 | 24000 | 24p | 1001 (NTSC) |
+| 1 | 60000 | 60p | 1001 |
+| 2 | 30000 | 30p | 1001 |
+| 3 | 15000 | 15p | 1001 |
+| 4 | 2400 | 2.4p | 100 |
+| 5 | 50000 | 50p | 1000 (PAL) |
+| 6 | 25000 | 25p | 1000 |
+
+**size enum** (table `0xCFDE0`, source field `+0x10`):
+
+| enum | width | height |
 |---|---|---|
-| 0 | 0x1F6800 (2,058,240 B) | 1920x1072 |
-| 1 | 0x0DC000 (901,120 B) | 1280x704 |
-| 2 | 0x041000 (266,240 B) | 640x416 |
-| 3 | 0x020800 (133,120 B) | 320/640 small |
+| 0 | 1920 | 1080 |
+| 1 | 1280 | 720 |
+| 2 | 640 | 424 |
+| 3 | 320 | 216 |
+
+Other source fields: `+0x18` quality (0 unset, 1 = High, 2 = Normal),
+`+0x1C` audio flag, `+0x20` sample rate (48000/24000/44100), `+0x28` audio depth
+(1 = 8-bit, 2 = 16-bit). The NTSC pulldown bases explain the x1001 scaling seen in
+the `0x63728` accounting increments (360,360 = 360 x 1001).
 
 ### The 7 movie modes
 
@@ -246,7 +278,9 @@ NQ 12/10 → 24/20). Patch with `../MODDING.md` and always flash a `verify`-clea
 
 ## 9. Still open
 
-- Writer of `0x84E65E50` fields (probably a cross-module copy from the vraw side).
-- Exact unit of the 0x63728 accounting increments (relation to fps documented above).
+- Writer of `0x84E65E50` fields (read by encode_cc; probably a copy from the vraw side).
+- Exact unit of the `0x63728` accounting increments (relations documented above; the
+  NTSC 1001 / PAL 1000 pulldown bases are now confirmed via the parser).
 - What the 15 fps / 2.4 fps rate classes drive (group 0 records 3/4, group 1 records 3/4).
-- UI menu index -> (width, rate) assignment lives in the A firmware.
+- Which message delivers the settings struct parsed around `0x69280` (the enum orders
+  themselves are now known - see section 2).
