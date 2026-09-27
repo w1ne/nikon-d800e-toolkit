@@ -55,8 +55,13 @@ nfpatch list  <raw_nikon.bin>
 nfpatch apply <raw_nikon.bin> <out.bin> <patch_id> [patch_id...]
 ```
 
-`nfpatch` hashes the **raw Nikon file** (D800E 1.11 = md5 `1b033eb7...`) and
-handles XOR decoding/encoding itself. Patch id 57 is the D800E 1.11 set:
+`nfpatch` hashes the **raw Nikon file** and handles XOR decoding/encoding itself.
+Supported images (patch sets): D800E 1.11 (md5 `1b033eb7...`), D800 1.11
+(md5 `2bc4a748...`), D800E 1.10 (md5 `a6a6c6a7...`). Ids 1-4 exist for all
+three; ids 5-6 (720p) are this repo's addition and are available for all three
+(the encode table region is byte-identical at the patch sites).
+
+Patch ids inside a set:
 
 | id | level | what |
 |---|---|---|

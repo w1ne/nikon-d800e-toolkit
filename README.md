@@ -176,6 +176,7 @@ Extract without mounting: `7zz x F-D800E-V111M.dmg` then extract the inner
 |---|---|---|
 | D800E_0111.bin (stock) | `1b033eb7795b13aa137a9170032ba2a7` | `8209dd3a57fbc0f5dbc50683aae9daefee60fec016c2afcd43ebc26b9ff0a9c0` |
 | D800_0111.bin (stock) | `2bc4a74881b08dc0ce67b4f748a0d947` | `fc1273aafd9787a665f662224e4b1aa1e0ff12a5af7befb1e3ec5cd112f6f0ab` |
+| D800E_0110.bin (stock) | `a6a6c6a7748d5acc97e859ad5031ace5` | `083e469fbbe9be950d8ddb51c1fc2a2057b96e3f9ee0d8b1e86f8c4cbc30bb32` |
 | patched_D800E_0111.bin (64 Mbps build) | `1ebecf6bdd5ff65346197e7edf522785` | `9de3c24ae5f08eb93b94344a7f53bc3dc1824a52f8bb947dc299d2e1784b75d8` |
 
 ### Disassembly results
@@ -220,13 +221,14 @@ whole mod is one command:
 ### Next steps
 
 - Hardware-test the 720p extension (720p60/50 HQ 64/60, NQ 24/20) - the exact sites
-  are listed in `ENCODE-MODULE.md` section 8. Nobody has ever had high-bitrate 720p on
-  a D800-family body.
-- Find the writer of the `0x84E65E50` settings block and the UI-enum -> (width, rate)
-  table (A firmware) to open the door to code-level features.
-- Code-level features (Live View manual ISO/shutter, HDMI experiments) via Ghidra +
-  `ghidra_fujitsu_fr` and/or the NikonHacker FR emulator, working toward open-source
-  firmware modules.
+  are listed in `ENCODE-MODULE.md` section 8, and the patch is now selectable for
+  **D800E 1.11, D800 1.11 and D800E 1.10** (`nfpatch` ids 5/6). Nobody has ever had
+  high-bitrate 720p on a D800-family body.
+- The A firmware (main CPU, MIPS32 big-endian) is identified and disassemblable -
+  see [`re/d800e/A-FIRMWARE.md`](re/d800e/A-FIRMWARE.md). Next: map its stage 2, PTP
+  handler tables, and the producer of the movie-settings message.
+- Code-mod groundwork (free space map, container validation, recovery options):
+  [`re/d800e/CODE-MOD-GROUNDWORK.md`](re/d800e/CODE-MOD-GROUNDWORK.md).
 
 ---
 
@@ -243,10 +245,12 @@ whole mod is one command:
     ├── MODDING.md                  # decode -> patch -> repack -> verify guide
     ├── make-mod.sh                 # one-command mod: patch + CRC verify + name
     ├── nikonfw.py                  # info/decode/encode/extract/search/verify/repack
-    ├── d800e_0111_patches.diff     # D800E 1.11 patch set (1080p ids 1-4, 720p ids 5-6)
+    ├── d800e_0111_patches.diff     # patch sets: D800E 1.11 + D800 1.11 + D800E 1.10
     ├── d800e/
     │   ├── ENCODE-MODULE.md        # visual map: modes, structs, matrix, patch sites
     │   ├── DISASM-FINDINGS.md      # bitrate dispatcher disassembly + full matrix
+    │   ├── A-FIRMWARE.md           # A side identified: MIPS32 big-endian, how to disasm
+    │   ├── CODE-MOD-GROUNDWORK.md  # free space, validation, recovery research
     │   └── disasm/README.md        # how to reproduce the disassembly
     └── patchcli/
         ├── main.c                  # CLI driver (list/apply)
