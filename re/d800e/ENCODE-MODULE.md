@@ -146,7 +146,11 @@ flowchart TB
 Quality comes in as R6 and is remapped to the internal R5; **quality 0 = High**
 (first handler pair), **quality 1 = Normal** (second pair).
 
-## 4. Definitive bitrate matrix (mechanically extracted)
+## 4. Definitive bitrate matrix (mechanically extracted, emulator-verified)
+
+> Execution-level check: `re/tools/emu-probe/` runs the dispatcher headlessly and
+> reproduces every row below (stock), and the 64/60 patched values for the
+> 1080p/720p60 modes (see `CODE-MOD-GROUNDWORK.md` section 5).
 
 Values are decimal Mbps; `@` = **B-block file offset** of the u32 BE operand.
 Records are frame-rate classes (0=24p, 1=60p, 2=30p, 3=15p, 4=2.4p, 5=50p, 6=25p).

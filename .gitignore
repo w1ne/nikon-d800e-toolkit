@@ -2,7 +2,9 @@
 *.dmg
 *.exe
 re/firmware/
-re/tools/
+re/tools/*
+# ... except our own emulator probe tool
+!re/tools/emu-probe/
 re/patched_D800E_0111.bin
 
 # disassembly work products (firmware-derived, keep local)

@@ -252,9 +252,12 @@ whole mod is one command:
     │   ├── A-FIRMWARE.md           # A side identified: MIPS32 big-endian, how to disasm
     │   ├── CODE-MOD-GROUNDWORK.md  # free space, validation, recovery research
     │   └── disasm/README.md        # how to reproduce the disassembly
-    └── patchcli/
-        ├── main.c                  # CLI driver (list/apply)
-        └── build.sh                # fetches upstream, applies diff, builds nfpatch
+    ├── patchcli/
+    │   ├── main.c                  # CLI driver (list/apply)
+    │   └── build.sh                # fetches upstream, applies diff, builds nfpatch
+    └── tools/emu-probe/
+        ├── D800Probe.java          # headless FR emulator probe (dispatcher self-test)
+        └── run.sh                  # compiles against the built emulator jar and runs
 ```
 
 ## Recovery options (if you brick)

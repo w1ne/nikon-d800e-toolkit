@@ -71,13 +71,51 @@ Findings:
 - Conclusion: recovery = chip-off NAND or mainboard swap. Any code-level
   experimentation should budget for one of these, or be done on a second body.
 
-## 4. Related infra notes
+## 4. REALOS system calls - now named
 
-- `INT #0x40` = Softune REALOS/FR system-call instruction (`1F 40`, 4042 sites
-  in B). Most-used service numbers: `0xD0` (781), `0xD1` (643), `0xD2` (360),
-  `0xAB` (309), `0xDB` (249), `0xC9` (236), `0xCB` (176). Naming them requires
-  the Softune REALOS syscall table; the counts alone already show where task
-  synchronisation happens.
+`INT #0x40` = Softune REALOS/FR system-call instruction (`1F 40`, 4042 sites in
+B). The emulator suite ships the name table (`realos-systemcalls.properties`,
+58 entries); the catalogue of B's call sites maps as:
+
+| R12 | sites | service | meaning |
+|---|---|---|---|
+| 0xD0 | 781 | sys_set_flg | set eventflag |
+| 0xD1 | 643 | sys_clr_flg | clear eventflag |
+| 0xD2 | 360 | sys_wai_flg | wait for eventflag |
+| 0xAB | 309 | sys_dly_tsk | delay task |
+| 0xDB | 249 | sys_tslp_tsk | sleep with timeout |
+| 0xC9 | 236 | sys_sig_sem | signal semaphore |
+| 0xCB | 176 | sys_wai_sem | wait on semaphore |
+| 0xE5 | 118 | sys_chg_pri | change task priority |
+| 0xE9 | 77 | sys_sta_tsk | start task |
+| 0x96 | 77 | sys_pol_flg | poll eventflag |
+| 0xC1 | 12 | sys_snd_msg | send message to mailbox |
+| 0xC3 | 7 | sys_rcv_msg | receive message from mailbox |
+
+The enormous eventflag/semaphore counts confirm the architecture: B is a
+multi-task REALOS system whose inter-task plumbing is almost entirely flags and
+semaphores - useful when hooking (a hook must not disturb these).
+
+## 5. Emulator validation (done)
+
+`re/tools/emu-probe/` drives the NikonHacker FR emulator headlessly
+(`FrEmulator` + `EmulationFramework.playOneFunction`) and executes the real
+dispatcher `0x61DE2` with chosen `(group, record, quality)` inputs:
+
+```sh
+./re/tools/emu-probe/run.sh b63e111b.bin            # stock self-test cases
+./re/tools/emu-probe/run.sh patched_b.bin 0x61DE2 0 0 0 0 2 1 1 1 0
+```
+
+Results - stock image reproduces the static matrix exactly (24/20 for
+g0 rec0/2/6, 12/8 for rec3, 10/8 for g1 rec0, 0/0 for g0 rec1, 5/4 and 3/2 for
+g2, 3/2 for g3...), and the patched image returns 64/60 for 1080/24p, 1080/30p,
+1080/25p and 720/60p, 24/20 NQ, and 24/20 / 12/10 for 720/30p / 720/25p. This
+is an independent execution-level confirmation of the whole mapping and of the
+patch.
+
+## 6. Related infra notes
+
 - The 720p bitrate extension is ported to all three supported images:
   D800E 1.11 (md5 `1b033eb7...`), D800 1.11 (md5 `2bc4a748...`),
   D800E 1.10 (md5 `a6a6c6a7748d5acc97e859ad5031ace5`) - `nfpatch` ids 5/6.
