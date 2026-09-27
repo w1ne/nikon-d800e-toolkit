@@ -48,6 +48,7 @@ cd ~/nikon-tools
 | `nikon-bracket.sh [dir] [-2 -1 0 +1 +2]` | exposure bracketing, restores expcomp |
 | `nikon-focus-stack.sh <frames> <step>` | Live View + relative focus drive stepping |
 | `nikon-liveview.sh` | live view window (ffplay) or `--record <sec> <out.mp4>` |
+| `nikon-check-bitrate.sh [--from-camera N] <file.MOV>` | measure real clip bitrate (verifies firmware mods) |
 
 Examples:
 
@@ -209,6 +210,13 @@ record classes exist for non-movie pipelines.
 - Decode -> edit -> re-encrypt -> verify workflow with worked 720p60 example:
   **[`re/MODDING.md`](re/MODDING.md)** (`re/nikonfw.py repack|verify`).
 
+The 720p extension is now a first-class patch option (ids 5/6 in `nfpatch`), and the
+whole mod is one command:
+
+```sh
+./re/make-mod.sh D800E_0111.bin outdir 3 5 6   # 1080p 64M + 720p60/50 + 720p30/25
+```
+
 ### Next steps
 
 - Hardware-test the 720p extension (720p60/50 HQ 64/60, NQ 24/20) - the exact sites
@@ -229,12 +237,13 @@ record classes exist for non-movie pipelines.
 ├── README.md                       # this file
 ├── FIRMWARE-PATCH-RESEARCH.md      # flash process, risks, firmware links
 ├── gp                              # gphoto2 wrapper (ptpcamerad workaround)
-├── nikon-*.sh                      # USB control scripts
+├── nikon-*.sh                      # USB control scripts (incl. check-bitrate)
 └── re/
     ├── RE-PLAN.md                  # full RE plan + recovery reality + milestones
     ├── MODDING.md                  # decode -> patch -> repack -> verify guide
+    ├── make-mod.sh                 # one-command mod: patch + CRC verify + name
     ├── nikonfw.py                  # info/decode/encode/extract/search/verify/repack
-    ├── d800e_0111_patches.diff     # the D800E 1.11 port for upstream
+    ├── d800e_0111_patches.diff     # D800E 1.11 patch set (1080p ids 1-4, 720p ids 5-6)
     ├── d800e/
     │   ├── ENCODE-MODULE.md        # visual map: modes, structs, matrix, patch sites
     │   ├── DISASM-FINDINGS.md      # bitrate dispatcher disassembly + full matrix

@@ -56,8 +56,30 @@ nfpatch apply <raw_nikon.bin> <out.bin> <patch_id> [patch_id...]
 ```
 
 `nfpatch` hashes the **raw Nikon file** (D800E 1.11 = md5 `1b033eb7...`) and
-handles XOR decoding/encoding itself. Patch id 57 is the D800E 1.11 set; ids
-1..4 inside it are the 36/54/64 Mbps variants.
+handles XOR decoding/encoding itself. Patch id 57 is the D800E 1.11 set:
+
+| id | level | what |
+|---|---|---|
+| 1 | Alpha | 1080p HQ 36 Mbps, NQ = old HQ |
+| 2 | Alpha | 1080p HQ 54 Mbps, NQ = old HQ |
+| 3 | Alpha | 1080p HQ 64 Mbps, NQ = old HQ |
+| 4 | Alpha | 1080p HQ 64 Mbps, NQ 36 Mbps |
+| 5 | Alpha | **720p60/50** HQ 64/60 Mbps, NQ 24/20 Mbps (this repo) |
+| 6 | Alpha | **720p30/25** HQ 24/20 Mbps, NQ 12/10 Mbps (this repo) |
+
+Ids combine, e.g. `nfpatch apply stock.bin out.bin 3 5 6` = full 64 Mbps mod.
+Or use the one-command wrapper, which also verifies CRCs and names the output:
+
+```sh
+./re/make-mod.sh <raw D800E_0111.bin> <outdir> 3 5 6
+# -> <outdir>/D800E_0111.bin, sha256 printed, CRC-verified
+```
+
+After flashing, confirm the patch took by measuring a recorded clip:
+
+```sh
+./nikon-check-bitrate.sh --from-camera <file_index>   # or: ./nikon-check-bitrate.sh clip.MOV
+```
 
 ## 3. The mod loop
 
@@ -119,7 +141,13 @@ full mode map and the safe ranges to stay inside.
 
 To add an option: append `Change` entries (with stock `before` bytes), add the
 `struct Patch`, extend `D800E_0111_patches[]`, rebuild, then
-`nfpatch apply <raw> <out> 57`.
+`nfpatch apply <raw> <out> <id...>`.
+
+Worked example in this repo: `re/d800e_0111_patches.diff` contains both the
+original 1080p port (ids 1-4) and the 720p extension (ids 5-6, 32 `Change`
+entries using the offsets from `d800e/ENCODE-MODULE.md` section 8). Regenerate
+the diff after editing the patched `patches.c` with
+`diff -u --label tools/nikon-firmware-tools/Nikon-Patch-JS/src/nikon_patch/patches.c --label patchcli/patches.c <pristine> <patched>`.
 
 ## 6. Safety notes
 

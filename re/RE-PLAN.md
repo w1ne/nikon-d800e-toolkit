@@ -140,6 +140,15 @@ python3 ~/nikon-tools/re/nikonfw.py search <file.bin> "D800E"
 ~/nikon-tools/re/patchcli/nfpatch list  D800E_0111.bin
 ~/nikon-tools/re/patchcli/nfpatch apply D800E_0111.bin out.bin 3
 
+# one-command mod (1080p 64M + 720p 64M + 720p30/25) with CRC verification
+~/nikon-tools/re/make-mod.sh D800E_0111.bin outdir 3 5 6
+
+# verify a flashable image / a decoded container
+python3 ~/nikon-tools/re/nikonfw.py verify outdir/D800E_0111.bin
+
+# after flashing: measure a recorded clip's real bitrate (USB)
+~/nikon-tools/nikon-check-bitrate.sh --from-camera <file_index>
+
 # extract original firmware from Nikon dmg (no mounting)
 7zz x -y -odir F-D800E-V111M.dmg
 7zz x -y -odir "dir/4.disk image（Apple_HFS：4）"
