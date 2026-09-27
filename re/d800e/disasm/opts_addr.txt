@@ -1,0 +1,5 @@
+-i 0x40000-0x4E2000=0
+-m 0x62180-0x621A0=CODE
+-waddress
+-whexcode
+-o /Users/andrii/nikon-tools/re/d800e/disasm/addr_test.asm
