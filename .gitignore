@@ -3,8 +3,10 @@
 *.exe
 re/firmware/
 re/tools/*
-# ... except our own emulator probe tool
+# ... except our own tools
 !re/tools/emu-probe/
+!re/tools/fr-asm/
+!re/tools/fr-hook/
 re/patched_D800E_0111.bin
 
 # disassembly work products (firmware-derived, keep local)

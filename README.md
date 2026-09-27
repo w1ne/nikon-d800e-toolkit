@@ -256,9 +256,17 @@ whole mod is one command:
     ├── patchcli/
     │   ├── main.c                  # CLI driver (list/apply)
     │   └── build.sh                # fetches upstream, applies diff, builds nfpatch
-    └── tools/emu-probe/
-        ├── D800Probe.java          # headless FR emulator probe (dispatcher self-test)
-        └── run.sh                  # compiles against the built emulator jar and runs
+    └── tools/
+        ├── emu-probe/
+        │   ├── D800Probe.java      # headless FR emulator probe (dispatcher self-test)
+        │   └── run.sh              # compiles against the built emulator jar and runs
+        ├── fr-asm/                 # minimal Fujitsu FR assembler (round-trip tested)
+        │   ├── frasm.py
+        │   ├── test.asm
+        │   └── selftest.sh
+        └── fr-hook/                # Phase-2 code-execution PoC (trampoline + cave stub)
+            ├── hook_poc.py
+            └── README.md
 ```
 
 ## Recovery options (if you brick)

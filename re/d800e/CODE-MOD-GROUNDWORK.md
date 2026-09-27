@@ -8,8 +8,8 @@ offsets are file offsets; B-firmware memory = file + 0x40000.
 | image | file offset | length | memory | notes |
 |---|---|---|---|---|
 | B | 0x6009E8 | 0x3DF618 (4.06 MiB) | 0x6409E8 | biggest cave; sits between code and the resource/string area |
-| B | 0x092758 | 0xD498 (54 KiB) | 0x4D2758 | amid early code |
-| B | 0x0A0000 | 0x20000 (128 KiB) | 0x4E0000 | aligned, amid code |
+| B | 0x092758 | 0xD498 (54 KiB) | 0x0D2758 | amid early code |
+| B | 0x0A0000 | 0x20000 (128 KiB) | 0x0E0000 | aligned, amid code |
 | B | 0x27E1FB | 0x101 | 0x2BE1FB | small |
 | B | 0x3BADF0 | 0x47C (1.1 KiB) | 0x3FADF0 | small |
 | B | 0x576648 | 0x54A8 (21 KiB) | 0x5B6648 | amid resources |
@@ -114,7 +114,21 @@ g2, 3/2 for g3...), and the patched image returns 64/60 for 1080/24p, 1080/30p,
 is an independent execution-level confirmation of the whole mapping and of the
 patch.
 
-## 6. Related infra notes
+## 6. Phase-2 code-execution PoC (done, emulator-verified)
+
+- `re/tools/fr-asm/frasm.py` - minimal FR assembler (LDI/MOV/CMP/branches/JMP/
+  CALL/RET/ST/LD/STM1/ENTER/..., encodings from the NikonHacker instruction
+  table, verified by assemble -> Dfr round-trip: `fr-asm/selftest.sh`).
+- `re/tools/fr-hook/hook_poc.py` - injects an 8-byte trampoline at the bitrate
+  dispatcher entry `0x61DE2` and a stub into the `0x0E0000` cave; recomputes
+  the block CRC; `--container` emits a flashable image.
+- Verified in the emulator: identity hook keeps the documented matrix and sets
+  the `0xCAFE0001` marker (code executed); `--force-quality` changes behaviour
+  (HQ requests return the NQ pair). Container mode verifies CRCs and bytes.
+- Open before hardware: runtime mapping of the cave, a verified-free marker RAM
+  address, and a sacrificial body (see `../../tools/fr-hook/README.md`).
+
+## 7. Related infra notes
 
 - The 720p bitrate extension is ported to all three supported images:
   D800E 1.11 (md5 `1b033eb7...`), D800 1.11 (md5 `2bc4a748...`),

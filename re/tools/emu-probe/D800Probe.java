@@ -33,6 +33,13 @@ public class D800Probe {
         emu.setContext(mem, cpu, p.getInterruptController());
 
         mem.changeProtection(0x650000, 0x10000, true, true, true);
+        // map a writable page at 0x84E6C000 (hook PoC marker lives there)
+        File markerPage = File.createTempFile("d800probe-marker", ".bin");
+        markerPage.deleteOnExit();
+        java.io.FileOutputStream fos = new java.io.FileOutputStream(markerPage);
+        fos.write(new byte[0x1000]);
+        fos.close();
+        mem.loadFile(markerPage, 0x84E6C000, false);
         mem.store16(HALT, 0xe0ff); // self-loop break target
 
         int[][] cases;
@@ -71,6 +78,7 @@ public class D800Probe {
             System.out.printf("g=%d rec=%d q=%d -> %,d / %,d%s%n",
                     c[0], c[1], c[2], mem.load32(OUT1), mem.load32(OUT2), err);
         }
+        System.out.printf("marker=0x%08X%n", mem.load32(0x84E6C020));
         fw.dispose();
     }
 }
